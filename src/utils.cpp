@@ -1,5 +1,9 @@
 #include "utils.hpp"
 
+#include <fstream>
+#include <filesystem>
+#include <sstream>
+
 namespace beast = boost::beast;
 namespace http = beast::http;
 
@@ -18,8 +22,16 @@ http::response<http::string_body> handle_request(const http::request<http::strin
         res.result(http::status::ok);
         res.body() = read_file("static/index.html");
       } catch (...) {
-        res.result(http::status::unavailable);
-        res.body() = "<h1 style=\"text-align: center;\">Failed to load index</h1>";
+        res.result(http::status::internal_server_error);
+        res.body() = "<h1 style=\"text-align: center;\">500 Server Error</h1>";
+      }
+    } else if (req.target() == "/Badawy") {
+      try {
+        res.result(http::status::ok);
+        res.body() = read_file("static/Badawy.html");
+      } catch (...) {
+        res.result(http::status::not_found);
+        res.body() = "<h1 style=\"text-align: center;\">404 Not Found</h1>";
       }
     } else {
       res.result(http::status::not_found);
@@ -36,9 +48,18 @@ http::response<http::string_body> handle_request(const http::request<http::strin
 }
 
 std::string read_file(const std::string& file_path) {
-    std::ifstream file(file_path, std::ios::binary);
-    if (!file.is_open())
-        throw std::runtime_error("Failed to open file: " + file_path);
+  std::ifstream file(file_path, std::ios::binary);
+
+  if (!file.is_open()) {
+    const std::filesystem::path fallback_path =
+      std::filesystem::path(HTTP_BEASTIE_SOURCE_DIR) / file_path;
+    file.open(fallback_path, std::ios::binary);
+  }
+
+  if (!file.is_open()) {
+    throw std::runtime_error("Failed to open file: " + file_path);
+  }
+
     std::ostringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
